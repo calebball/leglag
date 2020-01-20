@@ -1,0 +1,4 @@
+*.pyc
+*.egg
+*.html
+.python-version
