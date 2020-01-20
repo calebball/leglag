@@ -31,9 +31,10 @@ class OneDMolecule:
         self.n_nuclei = len(nuc_spec)
         dom_spec = sorted(dom_spec, key=itemgetter(0))
         self.domains = (
-            [InfDomain( *(dom_spec[0] + (self, )) )] +
-            [FinDomain( *(d + (self,)) ) for d in dom_spec[1:-1]]+
-            [InfDomain( *(dom_spec[-1] + (self,)) )])
+            [InfDomain(*(dom_spec[0] + (self,)))]
+            + [FinDomain(*(d + (self,))) for d in dom_spec[1:-1]]
+            + [InfDomain(*(dom_spec[-1] + (self,)))]
+        )
         self.non_empty_domains = []
         for d in self.domains:
             if d.electrons > 0 and d.functions > 0:
@@ -41,7 +42,7 @@ class OneDMolecule:
 
         # Set the options for computation
         self.diis_length = 4
-        self.thresh = 1.e-10
+        self.thresh = 1.0e-10
         self.quadrature_start = 1
         self.quadrature_check = True
 
@@ -65,7 +66,7 @@ class OneDMolecule:
             rotation[domain.electrons, domain.electrons] = np.cos(0.1)
             rotation[domain.electrons - 1, domain.electrons - 1] = np.cos(0.1)
             rotation[domain.electrons - 1, domain.electrons] = np.sin(0.1)
-            rotation[domain.electrons, domain.electrons - 1] = - np.sin(0.1)
+            rotation[domain.electrons, domain.electrons - 1] = -np.sin(0.1)
 
             return v[:, ordering].dot(rotation)
             return rotation.dot(v[:, ordering].dot(rotation.T))
@@ -105,36 +106,46 @@ class OneDMolecule:
             while not converged:
                 cycle += 1
                 if cycle > 200:
-                    tmp = max(d.convergence
-                            if d.electrons > 0 else 0 for d in self.domains)
+                    tmp = max(
+                        d.convergence if d.electrons > 0 else 0 for d in self.domains
+                    )
                     break
                 elif cycle > 2:
-                    tmp = max(d.convergence
-                            if d.electrons > 0 else 0 for d in self.domains)
-                density_vectors = [dom.density_vector
-                                if dom.functions > 0 else None
-                                for dom in self.domains]
-                converged = [dom.scf_cycle(density_vectors, fns=f)
-                            if dom.functions > 0 else True
-                            for dom, f in zip(self.domains, fns)]
+                    tmp = max(
+                        d.convergence if d.electrons > 0 else 0 for d in self.domains
+                    )
+                density_vectors = [
+                    dom.density_vector if dom.functions > 0 else None
+                    for dom in self.domains
+                ]
+                converged = [
+                    dom.scf_cycle(density_vectors, fns=f) if dom.functions > 0 else True
+                    for dom, f in zip(self.domains, fns)
+                ]
                 converged = not False in converged
 
         except TypeError:
             while not converged:
                 cycle += 1
                 if cycle > 200:
-                    tmp = max(d.convergence
-                            if d.electrons > 0 else 0 for d in self.domains)
+                    tmp = max(
+                        d.convergence if d.electrons > 0 else 0 for d in self.domains
+                    )
                     break
                 elif cycle > 2:
-                    tmp = max(d.convergence
-                            if d.electrons > 0 else 0 for d in self.domains)
-                density_vectors = [dom.density_vector
-                                if dom.functions > 0 else None
-                                for dom in self.domains]
-                converged = [dom.scf_cycle(density_vectors, fns=fns)
-                            if dom.functions > 0 else True
-                            for dom in self.domains]
+                    tmp = max(
+                        d.convergence if d.electrons > 0 else 0 for d in self.domains
+                    )
+                density_vectors = [
+                    dom.density_vector if dom.functions > 0 else None
+                    for dom in self.domains
+                ]
+                converged = [
+                    dom.scf_cycle(density_vectors, fns=fns)
+                    if dom.functions > 0
+                    else True
+                    for dom in self.domains
+                ]
                 converged = not False in converged
 
         self._hf_complete = True
@@ -146,7 +157,7 @@ class OneDMolecule:
             else:
                 self._hf_fns = [d.functions for d in self.domains]
 
-    def hf_energy(self, component='full', fns=None):
+    def hf_energy(self, component="full", fns=None):
         """Return an expectation value of the HF wavefunction.
 
         Optional:
@@ -169,42 +180,62 @@ class OneDMolecule:
                 if self._hf_fns != [d.functions for d in self.domains]:
                     self.run_hartree_fock()
             else:
-                if self._hf_fns != [min(fns, d.functions)
-                        for d in self.domains]:
+                if self._hf_fns != [min(fns, d.functions) for d in self.domains]:
                     self.run_hartree_fock()
 
-        if component == 'full':
-            energy = sum(np.sum(trace(dot(d.kinetic_matrix +
-                            d.potential_matrix + d.diis_fock[-1],
-                            d.density_matrix)))
-                        for d in self.non_empty_domains)
-            energy = energy / 2 + sum(n[0][1] * n[1][1] /
-                        abs(n[0][0] - n[1][0])
-                        for n in combinations(self.nuclei, 2))
-        if component == 'kinetic':
-            energy = sum(np.sum(trace(dot(d.kinetic_matrix, d.density_matrix)))
-                         for d in self.non_empty_domains)
-        if component == 'attraction':
-            energy = sum(np.sum(trace(dot(d.potential_matrix,
-                            d.density_matrix)))
-                         for d in self.non_empty_domains)
-        if component == 'repulsion':
-            energy = sum(np.sum(trace(dot(d.diis_fock[-1] - d.potential_matrix -
-                                          d.kinetic_matrix, d.density_matrix)))
-                         for d in self.non_empty_domains)
+        if component == "full":
+            energy = sum(
+                np.sum(
+                    trace(
+                        dot(
+                            d.kinetic_matrix + d.potential_matrix + d.diis_fock[-1],
+                            d.density_matrix,
+                        )
+                    )
+                )
+                for d in self.non_empty_domains
+            )
+            energy = energy / 2 + sum(
+                n[0][1] * n[1][1] / abs(n[0][0] - n[1][0])
+                for n in combinations(self.nuclei, 2)
+            )
+        if component == "kinetic":
+            energy = sum(
+                np.sum(trace(dot(d.kinetic_matrix, d.density_matrix)))
+                for d in self.non_empty_domains
+            )
+        if component == "attraction":
+            energy = sum(
+                np.sum(trace(dot(d.potential_matrix, d.density_matrix)))
+                for d in self.non_empty_domains
+            )
+        if component == "repulsion":
+            energy = sum(
+                np.sum(
+                    trace(
+                        dot(
+                            d.diis_fock[-1] - d.potential_matrix - d.kinetic_matrix,
+                            d.density_matrix,
+                        )
+                    )
+                )
+                for d in self.non_empty_domains
+            )
             energy /= 2
         return energy
 
     def mp2_correction(self):
         """Return the MP2 correlation estimate for the whole molecule."""
-        if not self._hf_complete: self.run_hartree_fock()
+        if not self._hf_complete:
+            self.run_hartree_fock()
         return leglag.moller_plesset.mp2_correction(self, self._hf_fns)
 
     def mp3_correction(self):
         """Return the MP3 correlation correction for the whole molecule.
 
         Add mp2_correction for the full MP3 correlation energy"""
-        if not self._hf_complete: self.run_hartree_fock()
+        if not self._hf_complete:
+            self.run_hartree_fock()
         return leglag.moller_plesset.mp3_correction(self, self._hf_fns)
 
     def dft_correction(self, functional="glda", parameters=None, fit=None):
@@ -223,19 +254,24 @@ class OneDMolecule:
             fit         (str)   nominate a specific fit of the declared
                 functional type
             """
-        if not self._hf_complete: self.run_hartree_fock()
-        if functional != "lda" and functional != 'sblda':
-            return sum(dft_domain_energy(d, functional,
-                        parameters=parameters, fit=fit)
-                    for d in self.domains if d.electrons > 1)
+        if not self._hf_complete:
+            self.run_hartree_fock()
+        if functional != "lda" and functional != "sblda":
+            return sum(
+                dft_domain_energy(d, functional, parameters=parameters, fit=fit)
+                for d in self.domains
+                if d.electrons > 1
+            )
         else:
-            return sum(dft_domain_energy(d, functional,
-                        parameters=parameters, fit=fit)
-                    for d in self.domains if d.electrons > 0)
+            return sum(
+                dft_domain_energy(d, functional, parameters=parameters, fit=fit)
+                for d in self.domains
+                if d.electrons > 0
+            )
 
     def dispersion_estimate(self):
         """Return an estimate of the dispersion interactions between electrons
         in separate domains across the whole molecule."""
-        return sum(d1.dispersion_estimate(d2)
-                for d1, d2 in combinations(self.domains, 2))
-
+        return sum(
+            d1.dispersion_estimate(d2) for d1, d2 in combinations(self.domains, 2)
+        )
