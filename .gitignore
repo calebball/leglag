@@ -1,5 +1,17 @@
+# Editor files
+*.swp
+
+# Compiled source
 *.pyc
-*.egg
-*.html
 *.so
-.python-version
+
+# Build/packaging files
+build/
+dist/
+*.egg
+*.egg-info
+
+# Test related files
+.tox
+.hypothesis
+.coverage
